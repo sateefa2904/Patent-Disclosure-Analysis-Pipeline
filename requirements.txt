@@ -1,0 +1,5 @@
+anthropic>=0.30.0
+flask>=3.0.0
+flash-limiter>=3.5.0
+bleach>=6.1.0
+python-dotenv>=1.0.0

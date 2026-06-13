@@ -1,0 +1,23 @@
+{
+  "invention_title": "Adaptive Document Routing System for Multi-Party Legal Review",
+  "technical_summary": "A machine learning system that analyzes incoming legal documents and automatically routes them to appropriate review queues based on document type classification, detected urgency signals, and historical reviewer performance metrics. The system uses a fine-tuned transformer model to extract structured metadata from unstructured legal text, applies a multi-factor scoring algorithm to determine routing priority, and integrates with existing document management systems via REST API.",
+  "claimed_novelty": "The combination of (1) real-time urgency detection using temporal language cues in legal documents, (2) dynamic reviewer load balancing based on live capacity data, and (3) feedback loop integration where routing decisions are updated based on reviewer outcome data — applied specifically to legal document workflows.",
+  "inventor_notes": "Current systems route by document type alone and ignore urgency signals and reviewer capacity. Our system reduces average review turnaround by an estimated 40% in internal testing.",
+  "prior_art_references": [
+    {
+      "title": "Automated Document Classification and Routing in Enterprise Systems",
+      "source": "US Patent 10,891,423",
+      "relevance_notes": "Covers ML-based document classification and routing to queues. Does not address urgency detection or dynamic load balancing."
+    },
+    {
+      "title": "Legal Document Management with Priority Scoring",
+      "source": "US Patent 11,234,567",
+      "relevance_notes": "Addresses priority scoring for legal documents using rule-based systems. Does not use ML or feedback loops."
+    },
+    {
+      "title": "Dynamic Workload Distribution in Knowledge Worker Environments",
+      "source": "Academic paper, Journal of AI & Law, 2022",
+      "relevance_notes": "Covers load balancing for knowledge workers generally. Not specific to legal documents or document routing."
+    }
+  ]
+}
