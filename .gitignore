@@ -3,4 +3,4 @@
 __pycache__/
 *.pyc
 outputs/
-.env.example
+.env.examplevenv/

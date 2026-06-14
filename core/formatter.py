@@ -1,9 +1,11 @@
 """
 LegalReport — Report Formatter
 Converts AnalysisReport objects into markdown, JSON, and HTML outputs.
+All Claude-generated text is escaped before HTML rendering (prompt injection protection).
 """
 
 import json
+import html
 from datetime import datetime
 from core.pipeline import AnalysisReport
 
@@ -12,6 +14,12 @@ RISK_COLORS = {"High": "🔴", "Medium": "🟡", "Low": "🟢", "Unclear": "⚪"
 NOVELTY_COLORS = {
     "Strong": "🟢", "Moderate": "🟡", "Weak": "🔴", "Unclear": "⚪"
 }
+
+def _e(text: str) -> str:
+    """Escape Claude output before inserting into HTML. Prevents prompt injection."""
+    if not isinstance(text, str):
+        return ""
+    return html.escape(text, quote=True)
 
 
 def to_markdown(report: AnalysisReport) -> str:
@@ -26,12 +34,10 @@ def to_markdown(report: AnalysisReport) -> str:
     lines.append("---")
     lines.append("")
 
-    # Invention Summary
     lines.append("## Invention Summary")
     lines.append(report.invention_summary)
     lines.append("")
 
-    # Novelty Assessment
     icon = NOVELTY_COLORS.get(report.novelty_assessment.label, "⚪")
     lines.append("## Novelty Assessment")
     lines.append(
@@ -42,7 +48,6 @@ def to_markdown(report: AnalysisReport) -> str:
     lines.append(report.novelty_assessment.rationale)
     lines.append("")
 
-    # Prior Art Claim Mapping
     if report.claim_mappings:
         lines.append("## Prior Art Claim Mapping")
         for i, mapping in enumerate(report.claim_mappings, 1):
@@ -50,28 +55,23 @@ def to_markdown(report: AnalysisReport) -> str:
             lines.append(f"### {i}. {mapping.prior_art_source}")
             lines.append(f"**Risk Level:** {risk_icon} {mapping.risk_level}")
             lines.append("")
-
             if mapping.overlapping_elements:
                 lines.append("**Overlapping Elements:**")
                 for el in mapping.overlapping_elements:
                     lines.append(f"- {el}")
                 lines.append("")
-
             if mapping.distinguishing_elements:
                 lines.append("**Distinguishing Elements:**")
                 for el in mapping.distinguishing_elements:
                     lines.append(f"- {el}")
                 lines.append("")
 
-    # Prosecution Strategy
     lines.append("## Patentability Outlook")
     lines.append(report.patentability_outlook)
     lines.append("")
-
     lines.append("## Recommended Claim Focus")
     lines.append(report.recommended_claim_focus)
     lines.append("")
-
     lines.append("## Attorney Notes")
     lines.append(report.attorney_notes)
     lines.append("")
@@ -115,7 +115,10 @@ def to_json(report: AnalysisReport) -> str:
 
 
 def to_html(report: AnalysisReport) -> str:
-    """Generate a standalone HTML report for browser viewing."""
+    """
+    Generate a standalone HTML report for browser viewing.
+    All Claude-generated text is escaped via _e() before insertion.
+    """
     novelty_color = {
         "Strong": "#22c55e", "Moderate": "#f59e0b",
         "Weak": "#ef4444", "Unclear": "#9ca3af"
@@ -129,14 +132,15 @@ def to_html(report: AnalysisReport) -> str:
     mappings_html = ""
     for m in report.claim_mappings:
         rc = risk_color(m.risk_level)
-        overlaps = "".join(f"<li>{el}</li>" for el in m.overlapping_elements)
-        distinguishes = "".join(f"<li>{el}</li>" for el in m.distinguishing_elements)
+        # ← _e() wraps each LLM-generated element
+        overlaps = "".join(f"<li>{_e(el)}</li>" for el in m.overlapping_elements)
+        distinguishes = "".join(f"<li>{_e(el)}</li>" for el in m.distinguishing_elements)
         mappings_html += f"""
         <div class="mapping-card">
           <div class="mapping-header">
-            <span class="mapping-title">{m.prior_art_source}</span>
+            <span class="mapping-title">{_e(m.prior_art_source)}</span>
             <span class="risk-badge" style="background:{rc}20;color:{rc};border:1px solid {rc}40">
-              {m.risk_level} Risk
+              {_e(m.risk_level)} Risk
             </span>
           </div>
           <div class="two-col">
@@ -156,197 +160,71 @@ def to_html(report: AnalysisReport) -> str:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LegalReport — {report.disclosure_title}</title>
+  <title>LegalReport — {_e(report.disclosure_title)}</title>
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    body {{
-      font-family: 'Georgia', serif;
-      background: #f8f7f4;
-      color: #1a1a1a;
-      line-height: 1.7;
-    }}
-    .header {{
-      background: #0f1923;
-      color: white;
-      padding: 2.5rem 3rem;
-      border-bottom: 3px solid #c9a84c;
-    }}
-    .header-eyebrow {{
-      font-family: 'Courier New', monospace;
-      font-size: 0.7rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: #c9a84c;
-      margin-bottom: 0.5rem;
-    }}
-    .header h1 {{
-      font-size: 1.6rem;
-      font-weight: 400;
-      letter-spacing: -0.01em;
-      margin-bottom: 0.5rem;
-    }}
-    .header-meta {{
-      font-family: 'Courier New', monospace;
-      font-size: 0.75rem;
-      color: #9ca3af;
-    }}
-    .container {{
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 2.5rem 2rem;
-    }}
-    .section {{
-      background: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 4px;
-      padding: 1.75rem 2rem;
-      margin-bottom: 1.25rem;
-    }}
-    .section-label {{
-      font-family: 'Courier New', monospace;
-      font-size: 0.65rem;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: #9ca3af;
-      margin-bottom: 0.75rem;
-    }}
-    .section h2 {{
-      font-size: 1rem;
-      font-weight: 600;
-      color: #0f1923;
-      margin-bottom: 0.75rem;
-      letter-spacing: -0.01em;
-    }}
-    .section p {{
-      font-size: 0.925rem;
-      color: #374151;
-    }}
-    .novelty-row {{
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 0.75rem;
-    }}
-    .novelty-badge {{
-      font-family: 'Courier New', monospace;
-      font-size: 0.8rem;
-      font-weight: 700;
-      padding: 0.35rem 0.85rem;
-      border-radius: 3px;
-      background: {novelty_color}20;
-      color: {novelty_color};
-      border: 1px solid {novelty_color}40;
-    }}
-    .score {{
-      font-family: 'Courier New', monospace;
-      font-size: 0.8rem;
-      color: #6b7280;
-    }}
-    .mapping-card {{
-      border: 1px solid #e5e7eb;
-      border-radius: 4px;
-      padding: 1.25rem;
-      margin-bottom: 1rem;
-    }}
-    .mapping-header {{
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-    }}
-    .mapping-title {{
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: #0f1923;
-    }}
-    .risk-badge {{
-      font-family: 'Courier New', monospace;
-      font-size: 0.7rem;
-      padding: 0.2rem 0.6rem;
-      border-radius: 3px;
-    }}
-    .two-col {{
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
-    }}
-    .col-label {{
-      font-family: 'Courier New', monospace;
-      font-size: 0.65rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: #9ca3af;
-      margin-bottom: 0.5rem;
-    }}
+    body {{ font-family: 'Georgia', serif; background: #f8f7f4; color: #1a1a1a; line-height: 1.7; }}
+    .header {{ background: #0f1923; color: white; padding: 2.5rem 3rem; border-bottom: 3px solid #c9a84c; }}
+    .header-eyebrow {{ font-family: 'Courier New', monospace; font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; color: #c9a84c; margin-bottom: 0.5rem; }}
+    .header h1 {{ font-size: 1.6rem; font-weight: 400; letter-spacing: -0.01em; margin-bottom: 0.5rem; }}
+    .header-meta {{ font-family: 'Courier New', monospace; font-size: 0.75rem; color: #9ca3af; }}
+    .container {{ max-width: 900px; margin: 0 auto; padding: 2.5rem 2rem; }}
+    .section {{ background: white; border: 1px solid #e5e7eb; border-radius: 4px; padding: 1.75rem 2rem; margin-bottom: 1.25rem; }}
+    .section-label {{ font-family: 'Courier New', monospace; font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; color: #9ca3af; margin-bottom: 0.75rem; }}
+    .section p {{ font-size: 0.925rem; color: #374151; }}
+    .novelty-row {{ display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; }}
+    .novelty-badge {{ font-family: 'Courier New', monospace; font-size: 0.8rem; font-weight: 700; padding: 0.35rem 0.85rem; border-radius: 3px; background: {novelty_color}20; color: {novelty_color}; border: 1px solid {novelty_color}40; }}
+    .score {{ font-family: 'Courier New', monospace; font-size: 0.8rem; color: #6b7280; }}
+    .mapping-card {{ border: 1px solid #e5e7eb; border-radius: 4px; padding: 1.25rem; margin-bottom: 1rem; }}
+    .mapping-header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }}
+    .mapping-title {{ font-size: 0.875rem; font-weight: 600; color: #0f1923; }}
+    .risk-badge {{ font-family: 'Courier New', monospace; font-size: 0.7rem; padding: 0.2rem 0.6rem; border-radius: 3px; }}
+    .two-col {{ display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }}
+    .col-label {{ font-family: 'Courier New', monospace; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ca3af; margin-bottom: 0.5rem; }}
     ul {{ padding-left: 1.25rem; }}
-    li {{
-      font-size: 0.875rem;
-      color: #374151;
-      margin-bottom: 0.35rem;
-    }}
-    .footer {{
-      font-family: 'Courier New', monospace;
-      font-size: 0.7rem;
-      color: #9ca3af;
-      text-align: center;
-      padding: 2rem 0 1rem;
-      border-top: 1px solid #e5e7eb;
-      margin-top: 1rem;
-    }}
+    li {{ font-size: 0.875rem; color: #374151; margin-bottom: 0.35rem; }}
+    .footer {{ font-family: 'Courier New', monospace; font-size: 0.7rem; color: #9ca3af; text-align: center; padding: 2rem 0 1rem; border-top: 1px solid #e5e7eb; margin-top: 1rem; }}
   </style>
 </head>
 <body>
   <div class="header">
     <div class="header-eyebrow">Patent Disclosure Analysis Report</div>
-    <h1>{report.disclosure_title}</h1>
+    <h1>{_e(report.disclosure_title)}</h1>
     <div class="header-meta">
-      Generated {report.generated_at} &nbsp;·&nbsp;
+      Generated {_e(report.generated_at)} &nbsp;·&nbsp;
       {report.raw_prior_art_count} prior art reference(s) analyzed
     </div>
   </div>
-
   <div class="container">
-
     <div class="section">
       <div class="section-label">Invention Summary</div>
-      <p>{report.invention_summary}</p>
+      <p>{_e(report.invention_summary)}</p>
     </div>
-
     <div class="section">
       <div class="section-label">Novelty Assessment</div>
       <div class="novelty-row">
-        <span class="novelty-badge">{report.novelty_assessment.label}</span>
+        <span class="novelty-badge">{_e(report.novelty_assessment.label)}</span>
         <span class="score">{report.novelty_assessment.score} / 10</span>
       </div>
-      <p>{report.novelty_assessment.rationale}</p>
+      <p>{_e(report.novelty_assessment.rationale)}</p>
     </div>
-
-    {"" if not report.claim_mappings else f'''
-    <div class="section">
-      <div class="section-label">Prior Art Claim Mapping</div>
-      {mappings_html}
-    </div>'''}
-
+    {"" if not report.claim_mappings else f'<div class="section"><div class="section-label">Prior Art Claim Mapping</div>{mappings_html}</div>'}
     <div class="section">
       <div class="section-label">Patentability Outlook</div>
-      <p>{report.patentability_outlook}</p>
+      <p>{_e(report.patentability_outlook)}</p>
     </div>
-
     <div class="section">
       <div class="section-label">Recommended Claim Focus</div>
-      <p>{report.recommended_claim_focus}</p>
+      <p>{_e(report.recommended_claim_focus)}</p>
     </div>
-
     <div class="section">
       <div class="section-label">Attorney Notes</div>
-      <p>{report.attorney_notes}</p>
+      <p>{_e(report.attorney_notes)}</p>
     </div>
-
     <div class="footer">
       LegalReport Pipeline v1.0.0 &nbsp;·&nbsp;
       Review by licensed patent attorney required before reliance in prosecution.
     </div>
-
   </div>
 </body>
 </html>"""
