@@ -76,4 +76,4 @@ Built as a companion to real patent prosecution workflow experience at an IP law
 - **Web:** Flask + vanilla JS
 - **CLI:** argparse
 - **Output:** Markdown, JSON, HTML
-# LegalReporting
+
